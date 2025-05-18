@@ -160,7 +160,7 @@ addLights(){
   this.scene.add(helper);
 }
     animate() {
-    this.render()
+    this.render();
     requestAnimationFrame(this.animate.bind(this));
 }
 
