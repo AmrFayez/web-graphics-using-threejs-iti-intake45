@@ -1,0 +1,28 @@
+The final project requirements:
+the editor should allow users to
+1- create walls on 2D editor(single lines or polygons)
+2- (extra) hover on a wall in 2D highlight this wall 
+3- (extra) select a wall on 2D selects the wall
+5- (extra)  show the wall dimension(length) on the web page;
+6- switch to the 3D viewer you can see the drawn wall with texture on the 3D
+Important the Evaluation on this course is based on this project
+ 
+Instructions:
+1- clone the project in  Lec 08 AEC Editor
+2- clean the unused functionality
+3- create a common array to hold the wall information in the Viewer.ts
+4- example of the wall array in the Viewer.ts
+
+//  {
+// type: 'wall',
+// start,
+// end,
+// angle,
+// length
+// } 
+
+
+5- on Switch to 3D Viewer  draw wall mesh based on the wall object
+6-add the textures to the wall meshes to look realistic 
+
+7- (extra) add highlight & selection feature to 2D walls 
