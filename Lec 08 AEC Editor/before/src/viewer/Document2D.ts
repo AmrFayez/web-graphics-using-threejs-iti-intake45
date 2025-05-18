@@ -4,10 +4,11 @@ import {AmbientLight, AxesHelper, Box3, BoxGeometry, BufferGeometry, Color, Dire
  
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import type { IDocument } from './IDocument';
+import { DrawWallCommand } from '../commands/DrawWallCommand';
 export class Document2D implements IDocument {
-  private container: HTMLElement;
-  private scene: Scene;
-  private camera: OrthographicCamera;
+    container: HTMLElement;
+    scene: Scene;
+    camera: OrthographicCamera;
   private controls: OrbitControls;
   private is2D = true;
   private grid?: Object3D;
@@ -18,6 +19,7 @@ export class Document2D implements IDocument {
   private startPoint?:Vector3|null;
   private previewWall:any=null;
   private wallWidth:number=1;
+  currentCommand:DrawWallCommand;
   constructor(container:HTMLElement ) {
     this.container=container;
     this.scene = this.createScene();
@@ -26,6 +28,7 @@ export class Document2D implements IDocument {
     this.setup();
 
     this.zoomExtend(1.2);
+    this.currentCommand=new DrawWallCommand(this);
   }
   private setup() {
   
@@ -42,47 +45,49 @@ export class Document2D implements IDocument {
   }
   //#region
   onMouseMove(e: MouseEvent) {
-    console.log("mouse move");
-    const rect = this.container.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
- if (this.drawing) {
-    const currentPoint = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
-    if (this.startPoint) {
-      // Remove old preview
-      if (this.previewWall) {
-        this.scene.remove(this.previewWall);
-        this.previewWall.geometry.dispose();
-        this.previewWall.material.dispose();
-      }
+    this.currentCommand.onMouseMove(e);
+//     console.log("mouse move");
+//     const rect = this.container.getBoundingClientRect();
+//     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+//     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+//  if (this.drawing) {
+//     const currentPoint = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
+//     if (this.startPoint) {
+//       // Remove old preview
+//       if (this.previewWall) {
+//         this.scene.remove(this.previewWall);
+//         this.previewWall.geometry.dispose();
+//         this.previewWall.material.dispose();
+//       }
 
-      // Create a new preview wall
-      const dir = new Vector2(currentPoint.x - this.startPoint.x, currentPoint.y - this.startPoint.y);
-      const length = dir.length();
-      const angle = Math.atan2(dir.y, dir.x);
+//       // Create a new preview wall
+//       const dir = new Vector2(currentPoint.x - this.startPoint.x, currentPoint.y - this.startPoint.y);
+//       const length = dir.length();
+//       const angle = Math.atan2(dir.y, dir.x);
 
-      const geometry = new PlaneGeometry(length, this.wallWidth);
-      const material = new MeshBasicMaterial({
-        color: 'gray',
-        transparent: true,
-        opacity: 0.4,
-        side: DoubleSide,
-      });
+//       const geometry = new PlaneGeometry(length, this.wallWidth);
+//       const material = new MeshBasicMaterial({
+//         color: 'gray',
+//         transparent: true,
+//         opacity: 0.4,
+//         side: DoubleSide,
+//       });
 
-      this.previewWall = new Mesh(geometry, material);
-      this.previewWall.position.set(
-        (this.startPoint.x + currentPoint.x) / 2,
-        (this.startPoint.y + currentPoint.y) / 2,
-        0
-      );
-      this.previewWall.rotation.z = angle;
+//       this.previewWall = new Mesh(geometry, material);
+//       this.previewWall.position.set(
+//         (this.startPoint.x + currentPoint.x) / 2,
+//         (this.startPoint.y + currentPoint.y) / 2,
+//         0
+//       );
+//       this.previewWall.rotation.z = angle;
 
-      this.scene.add(this.previewWall);
-    }
-  }
+//       this.scene.add(this.previewWall);
+//     }
+//   }
    
   }
   onMouseDown(e:MouseEvent) {
+    this.currentCommand.onMouseDown(e);
         if(e.button!==0)return; //left click only
     this.drawing = true;
     this.lastPoint = undefined;
@@ -90,12 +95,13 @@ export class Document2D implements IDocument {
     this.startPoint = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
 
   }
-  onMouseUp() {
+  onMouseUp(e:MouseEvent) {
+    this.currentCommand.onMouseUp(e);
   if (this.drawing && this.startPoint) {
     const end = new  Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
 
     if (this.previewWall) {
-      this.scene.remove(this.previewWall);
+      this.scene.remove(this.previewWall);  
       this.previewWall.geometry.dispose();
       this.previewWall.material.dispose();
       this.previewWall = null;
