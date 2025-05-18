@@ -1,34 +1,32 @@
-import {AmbientLight, AxesHelper, Box3, BoxGeometry, BufferGeometry, Color, DirectionalLight, DirectionalLightHelper, 
-    GridHelper, Group, Light, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SphereGeometry, SpotLight, SpotLightHelper, Vector2, Vector3, WebGLRenderer} from 'three';
+import {AmbientLight, AxesHelper, Box3, BufferGeometry, Color, DirectionalLight, 
+    GridHelper, Group, Line, LineBasicMaterial, Mesh, MeshStandardMaterial, MOUSE, Object3D, PerspectiveCamera, Plane, Raycaster, Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer} from 'three';
  
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import { GUI } from 'dat.gui';
 import { Resizer } from '../controls/resizer';
-import type { Viewable } from '../Viewable';
-import { Rectangle2D } from '../models/2d/Rectangle2D';
-export class WebViewer {
+import type { IDocument } from './IDocument';
+export class Document3D implements IDocument {
  
   container: HTMLElement;
   private scene: Scene;
   private camera: PerspectiveCamera;
   private controls: OrbitControls;
-  private is2D = true;
-  private mouse = new Vector2();
-  private lastPoint?: Vector3 | undefined;
-  private drawing: boolean = false;
-  private lineMaterial?: LineBasicMaterial;
-  private drawnLines: any[] = [];
-  private viewables: Viewable[] = [];
-  private hoveredMesh = null;
-  private selectedMesh = null;
+  private rayCaster:Raycaster;
+  private mouse 
+ 
+  private viewables: any = [];
+  private highlighted?:any ;
+  private selected?:Object3D;
+  private drawingPlane:Plane;
   constructor(domElement: HTMLElement) {
     this.container = domElement;
     this.scene = this.createScene();
     this.camera = this.createCamera();
     this.controls = this.addControls();
+    this.rayCaster=new Raycaster();
+    this.mouse= new Vector2();
+    this.drawingPlane = new Plane(new Vector3(0, -1, 0), 5); // Y=0 (XZ plane)
     this.setup();
-
-    this.zoomExtend(1.2);
+    
   }
   private setup() {
     new Resizer(this.container, this.camera);
@@ -41,51 +39,84 @@ export class WebViewer {
       this.container.clientWidth,
       this.container.clientHeight
     );
-    this.lineMaterial = new LineBasicMaterial({ color: 0xff0000 });
-    window.addEventListener("mousemove", this.onMouseMove.bind(this));
-    window.addEventListener("mousedown", this.onMouseDown.bind(this));
-    window.addEventListener("mouseup", this.onMouseUp.bind(this));
-  }
-  //#region
-  onMouseMove(e: MouseEvent) {
-    console.log("mouse move");
-    const rect = this.container.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    if (this.drawing) {
-      const point = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(
-        this.camera
-      );
-      if (this.lastPoint) {
-        const geometry = new BufferGeometry().setFromPoints([
-          this.lastPoint.clone(),
-          point.clone(),
-        ]);
-        const line = new Line(geometry, this.lineMaterial);
-        this.scene.add(line);
-        this.drawnLines.push({
-          start: this.lastPoint.clone(),
-          end: point.clone(),
-        });
+  }
+  
+  onMouseMove(e: MouseEvent) {
+    this.mouse.x = (e.clientX / this.container.clientWidth) * 2 - 1;
+      this.mouse.y = - (e.clientY / this.container.clientHeight) * 2 + 1;
+      //highlight spheres on move
+
+         // Highlighting
+      this.rayCaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.rayCaster.intersectObjects(this.viewables);
+
+      if (this.highlighted ) {
+        this.highlighted.material.emissive.set(0x000000);
+        this.highlighted = null;
       }
-      this.lastPoint = point;
-    }
+
+      if (intersects.length > 0) {
+        const closest = intersects[0].object as any;
+        if (closest !== this.selected) {
+          closest.material.emissive.set(0x333300);
+          this.highlighted = closest;
+        }
+      }
   }
-  onMouseDown() {
-    this.drawing = true;
-    this.lastPoint = undefined;
+  onMouseDown(e: MouseEvent) {
+    if(e.button!==0)return; //left click only
+
+      this.rayCaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.rayCaster.intersectObjects(this.viewables);
+  
+      if (intersects.length > 0) {
+        // Select this sphere and deselect others
+        var selected=this.selected as any;
+
+         this.viewables.forEach((obj:any)=>{
+          obj.material.color.set(0x0077ff);
+          obj.isSelected=false;
+         });
+        selected = intersects[0].object;
+        selected.material.color.set(0xff0000);
+        selected.isSelected=true;
+      } else {
+        // Create new sphere
+        const position =  this.rayCaster.ray.origin.clone()
+        .add( this.rayCaster.ray.direction.clone().multiplyScalar(50));
+        
+        this.addSphere(position);
+
+        // var intersectPoint = new Vector3();
+        // if (
+        //   this.rayCaster.ray.intersectPlane(this.drawingPlane, intersectPoint)
+        // ) {
+        //   this.addSphere(intersectPoint.clone());
+        // }
+      }
   }
-  onMouseUp() {
-    this.drawing = false;
-    this.lastPoint = undefined;
+  
+  onMouseUp(e: MouseEvent) {
+    
   }
+  
   //#endregion
+     addSphere(position:Vector3) {
+      const geometry = new  SphereGeometry(0.3, 32, 32);
+      const material = new  MeshStandardMaterial({ color: 0x0077ff });
+      const sphere = new  Mesh(geometry, material);
+      sphere.position.copy(position);
+      //sphere.position.y=5;
+      this.scene.add(sphere);
+      this.viewables.push(sphere);
+    }
   render(renderer:WebGLRenderer) {
     this.controls.update();
     renderer.render(this.scene, this.camera);
   }
   zoomExtend(offset: number = 1.1) {
+    debugger;
     const box = new Box3().setFromObject(this.scene);
     const size = box.getSize(new Vector3());
     const center = box.getCenter(new Vector3());
@@ -106,13 +137,13 @@ export class WebViewer {
   private addGridHelper() {
     var grid = new GridHelper(100, 100);
     this.scene.add(grid);
-    grid.rotation.x = MathUtils.degToRad(90);
+   // grid.rotation.x = MathUtils.degToRad(90);
     var axesHelper = new AxesHelper(2);
     this.scene.add(axesHelper);
   }
   private createScene() {
     var scene = new Scene();
-    scene.background = new Color("white");
+    scene.background = new Color("black");
     return scene;
   }
 
@@ -125,7 +156,7 @@ export class WebViewer {
     );
 
     // move the camera back so we can view the scene
-    camera.position.set(0, 10, 10);
+    camera.position.set(50, 50, 50);
     return camera;
  
   }

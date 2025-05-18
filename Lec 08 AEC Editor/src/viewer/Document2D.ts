@@ -4,7 +4,8 @@ import {AmbientLight, AxesHelper, Box3, BoxGeometry, BufferGeometry, Color, Dire
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import { Resizer } from '../controls/resizer';
 import type { Viewable } from '../Viewable';
-export class Document2D {
+import type { IDocument } from './IDocument';
+export class Document2D implements IDocument {
   private container: HTMLElement;
   private scene: Scene;
   private camera: OrthographicCamera;
@@ -40,9 +41,7 @@ export class Document2D {
       this.container.clientHeight
     );
     this.lineMaterial = new LineBasicMaterial({ color: 0xff0000 });
-    window.addEventListener("mousemove", this.onMouseMove.bind(this));
-    window.addEventListener("mousedown", this.onMouseDown.bind(this));
-    window.addEventListener("mouseup", this.onMouseUp.bind(this));
+  
   }
   //#region
   onMouseMove(e: MouseEvent) {
@@ -70,7 +69,8 @@ export class Document2D {
       this.lastPoint = point;
     }
   }
-  onMouseDown() {
+  onMouseDown(e:MouseEvent) {
+        if(e.button!==0)return; //left click only
     this.drawing = true;
     this.lastPoint = undefined;
   }
@@ -104,9 +104,8 @@ export class Document2D {
     this.controls.update();
   }
   private addControls() {
-    let domElement=this.container.children[0] as HTMLElement;
-    debugger;
-    var controls = new OrbitControls(this.camera,domElement);
+    
+    var controls = new OrbitControls(this.camera,this.container);
 
     controls.enablePan = true;
     controls.enableRotate = false;
@@ -122,7 +121,7 @@ export class Document2D {
     this.scene.add(grid);
     grid.rotation.x = MathUtils.degToRad(90);
     var axesHelper = new AxesHelper(2);
-    this.scene.add(axesHelper);
+    this.camera.add(axesHelper);
   }
   private createScene() {
     var scene = new Scene();
