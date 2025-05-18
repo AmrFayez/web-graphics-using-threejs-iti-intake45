@@ -1,9 +1,8 @@
 import {AmbientLight, AxesHelper, Box3, BoxGeometry, BufferGeometry, Color, DirectionalLight, DirectionalLightHelper, 
-    GridHelper, Group, Light, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SphereGeometry, SpotLight, SpotLightHelper, Vector2, Vector3, WebGLRenderer} from 'three';
+    DoubleSide, 
+    GridHelper, Group, Light, Line, LineBasicMaterial, MathUtils, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, PlaneGeometry, Scene, Shape, ShapeGeometry, SphereGeometry, SpotLight, SpotLightHelper, Vector2, Vector3, WebGLRenderer} from 'three';
  
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import { Resizer } from '../controls/resizer';
-import type { Viewable } from '../Viewable';
 import type { IDocument } from './IDocument';
 export class Document2D implements IDocument {
   private container: HTMLElement;
@@ -15,11 +14,10 @@ export class Document2D implements IDocument {
   private mouse = new Vector2();
   private lastPoint?: Vector3 | undefined;
   private drawing: boolean = false;
-  private lineMaterial?: LineBasicMaterial;
-  private drawnLines: any[] = [];
-  private viewables: Viewable[] = [];
-  private hoveredMesh = null;
-  private selectedMesh = null;
+ 
+  private startPoint?:Vector3|null;
+  private previewWall:any=null;
+  private wallWidth:number=1;
   constructor(container:HTMLElement ) {
     this.container=container;
     this.scene = this.createScene();
@@ -40,7 +38,6 @@ export class Document2D implements IDocument {
       this.container.clientWidth,
       this.container.clientHeight
     );
-    this.lineMaterial = new LineBasicMaterial({ color: 0xff0000 });
   
   }
   //#region
@@ -49,34 +46,68 @@ export class Document2D implements IDocument {
     const rect = this.container.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    if (this.drawing) {
-      const point = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(
-        this.camera
-      );
-      if (this.lastPoint) {
-        const geometry = new BufferGeometry().setFromPoints([
-          this.lastPoint.clone(),
-          point.clone(),
-        ]);
-        const line = new Line(geometry, this.lineMaterial);
-        this.scene.add(line);
-        this.drawnLines.push({
-          start: this.lastPoint.clone(),
-          end: point.clone(),
-        });
+ if (this.drawing) {
+    const currentPoint = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
+    if (this.startPoint) {
+      // Remove old preview
+      if (this.previewWall) {
+        this.scene.remove(this.previewWall);
+        this.previewWall.geometry.dispose();
+        this.previewWall.material.dispose();
       }
-      this.lastPoint = point;
+
+      // Create a new preview wall
+      const dir = new Vector2(currentPoint.x - this.startPoint.x, currentPoint.y - this.startPoint.y);
+      const length = dir.length();
+      const angle = Math.atan2(dir.y, dir.x);
+
+      const geometry = new PlaneGeometry(length, this.wallWidth);
+      const material = new MeshBasicMaterial({
+        color: 'gray',
+        transparent: true,
+        opacity: 0.4,
+        side: DoubleSide,
+      });
+
+      this.previewWall = new Mesh(geometry, material);
+      this.previewWall.position.set(
+        (this.startPoint.x + currentPoint.x) / 2,
+        (this.startPoint.y + currentPoint.y) / 2,
+        0
+      );
+      this.previewWall.rotation.z = angle;
+
+      this.scene.add(this.previewWall);
     }
+  }
+   
   }
   onMouseDown(e:MouseEvent) {
         if(e.button!==0)return; //left click only
     this.drawing = true;
     this.lastPoint = undefined;
+    //
+    this.startPoint = new Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
+
   }
   onMouseUp() {
-    this.drawing = false;
-    this.lastPoint = undefined;
+  if (this.drawing && this.startPoint) {
+    const end = new  Vector3(this.mouse.x, this.mouse.y, 0).unproject(this.camera);
+
+    if (this.previewWall) {
+      this.scene.remove(this.previewWall);
+      this.previewWall.geometry.dispose();
+      this.previewWall.material.dispose();
+      this.previewWall = null;
+    }
+
+    this.drawWallRectangle(this.startPoint, end);
+  }
+  this.drawing = false;
+  this.startPoint = null;
+
+    // this.drawing = false;
+    // this.lastPoint = undefined;
   }
   //#endregion
   render(renderer:WebGLRenderer) {
@@ -165,11 +196,42 @@ export class Document2D implements IDocument {
     // this.grid=grid;
     //return this.scene.add(this.grid);
   }
+drawWallRectangle(start:Vector3, end:Vector3) {
+ // Compute direction vector
+const dir = new Vector2(end.x - start.x, end.y - start.y);
+const length = dir.length();
+const angle = Math.atan2(dir.y, dir.x);
 
-  animate() {
-   // this.render();
-    //requestAnimationFrame(this.animate.bind(this));
-  }
+
+// Create geometry and material
+const geometry = new PlaneGeometry(length, this.wallWidth);
+const material = new MeshBasicMaterial({
+color: 0x6699ff,
+side: DoubleSide,
+transparent: true,
+opacity: 0.6,
+});
+
+// Create mesh and position it at the midpoint between start and end
+const mesh = new Mesh(geometry, material);
+mesh.position.set((start.x + end.x) / 2, (start.y + end.y) / 2, 0);
+mesh.rotation.z = angle;
+
+// Add mesh to scene
+this.scene.add(mesh);
+
+// Store wall data for 3D conversion
+// drawnLines.push({
+// type: 'wall',
+// start: start.clone(),
+// end: end.clone(),
+// angle,
+// length,
+// height: wallHeight,
+// });
+
+}
+  
 }
 
  
