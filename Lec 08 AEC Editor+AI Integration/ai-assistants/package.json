@@ -1,0 +1,19 @@
+{
+  "name": "ai-assistants",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "marked": "^15.0.12",
+    "openai": "^4.103.0"
+  }
+}

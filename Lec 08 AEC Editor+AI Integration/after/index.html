@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Viewer  App</title>
+<style>
+      #app{
+        height: 100vh;
+        width: calc(100% - 350px);
+        margin-right: 350px;
+      }
+      body{
+        margin: 0;
+        padding: 0;
+      }
+      .toolbar{
+          position: fixed;
+          top: 50%;
+          right: 400px;
+          transform: translateY(-50%);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          background-color: #f1f1f1;
+          padding: 10px;
+          border-radius: 8px 0 0 8px;
+          box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .toolbar button {
+          background: linear-gradient(135deg, #4f46e5, #3b82f6);
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          font-size: 14px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+      }
+
+      .toolbar button:hover {
+          background: linear-gradient(135deg, #4338ca, #2563eb);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          transform: translateX(-2px);
+      }
+
+      .toolbar button:active {
+          transform: scale(0.98);
+          background: linear-gradient(135deg, #3730a3, #1d4ed8);
+      }
+
+      /* Chat Interface Styles */
+      .chat-container {
+          position: fixed;
+          right: 0;
+          top: 0;
+          width: 350px;
+          height: 100vh;
+          background-color: #ffffff;
+          border-left: 1px solid #e5e7eb;
+          display: flex;
+          flex-direction: column;
+      }
+
+      .chat-messages {
+          flex-grow: 1;
+          overflow-y: auto;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+      }
+
+      .message {
+          padding: 10px 15px;
+          border-radius: 8px;
+          max-width: 85%;
+          word-wrap: break-word;
+      }
+
+      .user-message {
+          background-color: #e3f2fd;
+          margin-left: auto;
+      }
+
+      .ai-message {
+          background-color: #f3f4f6;
+          margin-right: auto;
+      }
+
+      .chat-input-container {
+          padding: 20px;
+          border-top: 1px solid #e5e7eb;
+          background-color: #ffffff;
+      }
+
+      .chat-input-wrapper {
+          display: flex;
+          gap: 10px;
+      }
+
+      .chat-input {
+          flex-grow: 1;
+          padding: 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 14px;
+          resize: none;
+          min-height: 24px;
+          max-height: 150px;
+          outline: none;
+      }
+
+      .chat-input:focus {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+      }
+
+      .send-button {
+          background: linear-gradient(135deg, #4f46e5, #3b82f6);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+      }
+
+      .send-button:hover {
+          background: linear-gradient(135deg, #4338ca, #2563eb);
+      }
+
+      .loading {
+          position: relative;
+          opacity: 0.7;
+          pointer-events: none;
+      }
+      
+      .loading::after {
+          content: '';
+          position: absolute;
+          width: 20px;
+          height: 20px;
+          top: 50%;
+          left: 50%;
+          margin: -10px 0 0 -10px;
+          border: 2px solid #f3f3f3;
+          border-top: 2px solid #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+
+      .error-message {
+          color: #ef4444;
+          padding: 10px;
+          text-align: center;
+          font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    
+    <div id="app"></div>
+     <div class="toolbar">
+    <button id='toggleViewsBtn'>Toggle Views</button>
+    <button id="zoomFitBtn">Zoom Fit</button>
+    <button>Tool 3</button>
+    <button>Tool 4</button>
+  </div>
+    
+    <div class="chat-container">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message ai-message">Please enter your OpenAI API key to start chatting.</div>
+      </div>
+      <div id="apiKeyPrompt" style="padding: 20px; border-top: 1px solid #e5e7eb;">
+        <input 
+          type="password" 
+          id="apiKeyInput" 
+          placeholder="Enter your OpenAI API key" 
+          style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #e5e7eb; border-radius: 4px;"
+        >
+        <button 
+          id="saveApiKey" 
+          style="width: 100%; padding: 8px; background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; border-radius: 4px; cursor: pointer;"
+        >
+          Save API Key
+        </button>
+      </div>
+      <div class="chat-input-container" style="display: none;">
+        <div class="chat-input-wrapper">
+          <textarea 
+            class="chat-input" 
+            id="chatInput" 
+            placeholder="Type your message here..."
+            rows="1"
+          ></textarea>
+          <button class="send-button" id="sendMessage">Send</button>
+        </div>
+      </div>
+    </div>
+    
+    <script type="module">
+      import { Viewer } from './src/Viewer.ts'
+      import { AIChat } from './src/openai.ts'
+
+      const container = document.querySelector('#app');
+      const viewer = new Viewer(container);
+      viewer.animate();
+      var is2D = true;
+
+      document.querySelector('#toggleViewsBtn')?.addEventListener('click',()=>{
+        is2D=!is2D;
+        if(is2D){
+          viewer.setView('2d');
+        }else{
+          viewer.setView('3d');
+        }
+      })
+
+      document.querySelector('#zoomFitBtn')?.addEventListener('click', () => {
+        viewer.zoomFit(1);
+      })
+
+      // Chat functionality
+      let aiChat = null;
+      const chatInput = document.getElementById('chatInput');
+      const sendButton = document.getElementById('sendMessage');
+      const chatMessages = document.getElementById('chatMessages');
+      const apiKeyInput = document.getElementById('apiKeyInput');
+      const apiKeyPrompt = document.getElementById('apiKeyPrompt');
+      const chatInputContainer = document.querySelector('.chat-input-container');
+
+      // Check for saved API key
+      const savedApiKey = localStorage.getItem('openai_api_key');
+      if (savedApiKey) {
+        initializeChat(savedApiKey);
+      }
+
+      // Initialize chat with API key
+      function initializeChat(apiKey) {
+        try {
+          aiChat = new AIChat(apiKey);
+          apiKeyPrompt.style.display = 'none';
+          chatInputContainer.style.display = 'block';
+          localStorage.setItem('openai_api_key', apiKey);
+        } catch (error) {
+          showError('Failed to initialize chat. Please check your API key.');
+        }
+      }
+
+      // Save API key
+      document.getElementById('saveApiKey').addEventListener('click', () => {
+        const apiKey = apiKeyInput.value.trim();
+        if (apiKey) {
+          initializeChat(apiKey);
+        } else {
+          showError('Please enter a valid API key');
+        }
+      });
+
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        chatMessages.appendChild(errorDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Remove error after 5 seconds
+        setTimeout(() => {
+          errorDiv.remove();
+        }, 5000);
+      }
+
+      // Auto-resize textarea
+      chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+      });
+
+      // Send message function
+      async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        if (!aiChat) {
+          showError('Please enter your OpenAI API key first');
+          return;
+        }
+
+        // Add user message
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'message user-message';
+        userMessageDiv.textContent = message;
+        chatMessages.appendChild(userMessageDiv);
+
+        // Clear input and reset height
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        
+        // Add loading state
+        sendButton.classList.add('loading');
+        sendButton.disabled = true;
+        chatInput.disabled = true;
+
+        try {
+          // Get AI response
+          const response = await aiChat.sendMessage(message);
+          
+          // Add AI message
+          const aiMessageDiv = document.createElement('div');
+          aiMessageDiv.className = 'message ai-message';
+          aiMessageDiv.textContent = response.message;
+          if(response.lines){
+            viewer.drawRoom(response.lines);
+          }
+          chatMessages.appendChild(aiMessageDiv);
+        } catch (error) {
+          showError('Failed to get AI response. Please try again.');
+          console.error('Error:', error);
+        } finally {
+          // Remove loading state
+          sendButton.classList.remove('loading');
+          sendButton.disabled = false;
+          chatInput.disabled = false;
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      }
+
+      // Send message on button click
+      sendButton.addEventListener('click', sendMessage);
+
+      // Send message on Enter (but allow new lines with Shift+Enter)
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    </script>
+  </body>
+</html>
