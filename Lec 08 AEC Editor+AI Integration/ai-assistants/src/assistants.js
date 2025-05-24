@@ -64,6 +64,7 @@ messageInput.addEventListener('input', () => {
 // Function to wait for run completion
 async function waitForRunCompletion(threadId, runId) {
   while (true) {
+    debugger;
     const run = await openai.beta.threads.runs.retrieve(threadId, runId)
     if (run.status === 'completed') {
       return run
@@ -108,7 +109,7 @@ async function handleSend() {
 
     // Get the messages
     const messages = await openai.beta.threads.messages.list(threadId)
-    
+    debugger;
     // Remove loading message
     chatContainer.removeChild(chatContainer.lastChild)
     
